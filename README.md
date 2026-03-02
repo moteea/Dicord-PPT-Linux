@@ -1,4 +1,4 @@
-# Discord Push-To-Talk with Mouse Button on Linux (No Rofi)
+# Discord Push-To-Talk with Mouse Button on Linux
 
 Use this if you want mouse-button Push-To-Talk in Discord on Linux.
 
