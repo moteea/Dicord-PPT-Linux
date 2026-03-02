@@ -20,25 +20,32 @@ In Discord:
 If you use another combo, it must match your script config later.
 
 ## 3) Install required packages
+Core (required for PTT):
 
 ### Ubuntu / Debian
 ```bash
 sudo apt update
-sudo apt install python3 python3-pip xdotool evtest rofi libnotify-bin
+sudo apt install python3 python3-pip xdotool evtest
 pip3 install --user evdev
 ```
 
 ### Fedora
 ```bash
-sudo dnf install python3 python3-pip xdotool evtest rofi libnotify
+sudo dnf install python3 python3-pip xdotool evtest
 pip3 install --user evdev
 ```
 
 ### Arch
 ```bash
-sudo pacman -S python python-pip xdotool evtest rofi libnotify
+sudo pacman -S python python-pip xdotool evtest
 pip install --user evdev
 ```
+
+Optional (only for `RofiPTT.sh` menu and notifications):
+
+- Ubuntu / Debian: `sudo apt install rofi libnotify-bin`
+- Fedora: `sudo dnf install rofi libnotify`
+- Arch: `sudo pacman -S rofi libnotify`
 
 ## 4) Find your mouse input device
 ```bash
