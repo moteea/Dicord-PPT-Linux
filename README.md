@@ -1,6 +1,6 @@
 # Discord Push-To-Talk on Linux
 
-Use this if you want mouse-button Push-To-Talk in Discord on Linux.
+Use this if you want button Push-To-Talk in Discord on Linux.
 
 ## 1) Open Discord in X11 mode (important on Wayland)
 Run Discord with:
