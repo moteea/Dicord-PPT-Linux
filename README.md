@@ -2,6 +2,21 @@
 
 Use this if you want button Push-To-Talk in Discord on Linux.
 
+## Quick setup script (automatic)
+This repo includes a one-shot installer script that does:
+- OS/package-manager detection
+- dependency install
+- mouse device selection
+- side-button code detection
+- config + service registration
+
+Run:
+
+```bash
+chmod +x ./setup-ptt.sh
+./setup-ptt.sh
+```
+
 ## 1) Open Discord in X11 mode (important on Wayland)
 Run Discord with:
 
@@ -52,7 +67,7 @@ Optional (only for `RofiPTT.sh` menu and notifications):
 ls -l /dev/input/by-id/
 ```
 
-Find your mouse and note its `eventX` device.
+Prefer the stable `/dev/input/by-id/*event-mouse` path instead of a raw `/dev/input/eventX` path.
 
 ## 5) Find your side-button key code
 ```bash
@@ -76,29 +91,10 @@ Create `~/.config/ptt/config.json`:
 Replace with your actual values.
 
 ## 7) Create the PTT script
-Create `~/.config/ptt/discord-ptt.py`:
+Copy the repo script into place:
 
-```python
-#!/usr/bin/env python3
-from evdev import InputDevice, ecodes
-import json
-import os
-import subprocess
-
-cfg = json.load(open(os.path.expanduser("~/.config/ptt/config.json")))
-dev = InputDevice(cfg["DEVICE_PATH"])
-
-def send(press):
-    os.environ["DISPLAY"] = cfg.get("DISPLAY", ":0")
-    cmd = "keydown" if press else "keyup"
-    subprocess.run(["xdotool", cmd, cfg["DISCORD_SHORTCUT"]], check=False)
-
-for event in dev.read_loop():
-    if event.type == ecodes.EV_KEY and event.code == int(cfg["PTT_CODE"]):
-        if event.value == 1:
-            send(True)
-        elif event.value == 0:
-            send(False)
+```bash
+cp ./discord-ptt.py ~/.config/ptt/discord-ptt.py
 ```
 
 Make it executable:
@@ -150,7 +146,7 @@ Then edit your generated config values in:
 - `~/.config/ptt/config.json`
 
 Important:
-- Replace `DEVICE_PATH` (`/dev/input/eventX`) with your real input device.
+- Replace `DEVICE_PATH` with your real input device. A `/dev/input/by-id/*event-mouse` path is preferred.
 - Replace `PTT_CODE` with your mouse side-button code from `evtest`.
 
 Apply Home Manager:
@@ -191,6 +187,8 @@ journalctl --user -u discord-ptt.service -f
 ```bash
 discord --enable-features=UseOzonePlatform --ozone-platform=x11
 ```
+
+4. If the service starts but does not react to button presses, confirm your user can read the chosen input device.
 
 ## 12) License
 MIT. See [LICENSE](./LICENSE).
