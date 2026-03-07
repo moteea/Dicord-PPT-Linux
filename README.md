@@ -1,8 +1,36 @@
-# Discord Push-To-Talk on Linux
+# Discord Push-to-Talk (PTT) for Linux
 
-Use this if you want button Push-To-Talk in Discord on Linux.
+Discord Push-to-Talk for Linux is a Python script that enables global PTT for Discord on Linux, including Wayland setups where Discord push-to-talk may not work reliably.
 
-## 1) Open Discord in X11 mode (important on Wayland)
+Keywords: Discord PTT Linux, Discord Push-to-Talk Linux, Discord Wayland Push-to-Talk, global push-to-talk for Discord on Linux.
+
+Discord on Linux can have trouble with global Push-to-Talk, especially on Wayland. This project works around that by listening for an input event and sending the configured Discord shortcut.
+
+Use this project if you want global Push-to-Talk for Discord on Linux using a mouse side button or another input device.
+
+## What this project does
+- Watches a Linux input device such as a mouse side button.
+- Sends your configured Discord Push-to-Talk shortcut when that button is pressed and released.
+- Runs as a user service so Discord push-to-talk is available after login.
+
+## Who this project is for
+- Linux users who want Discord Push-to-Talk to work with a mouse button or another input device.
+- Wayland users who need a workaround for unreliable Discord global PTT behavior.
+- X11 users who want a lightweight global push-to-talk setup for Discord on Linux.
+
+## Supported environments
+- Linux
+- Wayland
+- X11
+
+## Quick start
+1. Run Discord in X11 mode so you can set the Discord Push-to-Talk keybind.
+2. Install the required packages for your Linux distribution.
+3. Find your input device and button code.
+4. Save the config file and run the included Python script as a user service.
+
+## Installation
+### 1) Open Discord in X11 mode (important on Wayland)
 Run Discord with:
 
 ```bash
@@ -11,7 +39,7 @@ discord --enable-features=UseOzonePlatform --ozone-platform=x11
 
 Use this Discord session to set your keybind.
 
-## 2) Set Discord PTT keybind
+### 2) Set Discord PTT keybind
 In Discord:
 1. `User Settings -> Voice & Video`
 2. Set `Input Mode = Push to Talk`
@@ -19,7 +47,7 @@ In Discord:
 
 If you use another combo, it must match your script config later.
 
-## 3) Install required packages
+### 3) Install required packages
 Core (required for PTT):
 
 ### Ubuntu / Debian
@@ -47,21 +75,22 @@ Optional (only for `RofiPTT.sh` menu and notifications):
 - Fedora: `sudo dnf install rofi libnotify`
 - Arch: `sudo pacman -S rofi libnotify`
 
-## 4) Find your mouse input device
+## Configuration
+### 4) Find your mouse input device
 ```bash
 ls -l /dev/input/by-id/
 ```
 
 Use your mouse device path from `/dev/input/by-id/` if available.
 
-## 5) Find your side-button key code
+### 5) Find your side-button key code
 ```bash
 sudo evtest /dev/input/eventX
 ```
 
 Press your side button and note the code (example: `BTN_276` / `276`).
 
-## 6) Create config file
+### 6) Create config file
 Create `~/.config/ptt/config.json`:
 
 ```json
@@ -75,7 +104,7 @@ Create `~/.config/ptt/config.json`:
 
 Replace with your actual values.
 
-## 7) Create the PTT script
+### 7) Create the PTT script
 Create `~/.config/ptt/discord-ptt.py`:
 
 ```python
@@ -153,7 +182,7 @@ Make it executable:
 chmod +x ~/.config/ptt/discord-ptt.py
 ```
 
-## 8) Auto-start at login (systemd user service)
+### 8) Auto-start at login (systemd user service)
 Create `~/.config/systemd/user/discord-ptt.service`:
 
 ```ini
@@ -176,7 +205,7 @@ systemctl --user daemon-reload
 systemctl --user enable --now discord-ptt.service
 ```
 
-## 9) Nix / Home Manager setup
+## Alternative setup: Nix / Home Manager
 This repo includes a Home Manager module:
 
 `./discord-ptt-home-manager.nix`
@@ -207,7 +236,7 @@ home-manager switch
 
 This module installs dependencies, writes the PTT scripts, and enables the user service.
 
-## 10) Optional Rofi menu (non-Nix users)
+## Optional Rofi menu
 This repo includes `RofiPTT.sh`.
 
 Copy and run it:
@@ -224,7 +253,7 @@ What it does:
 - Set Discord keybind (preset or custom)
 - Show current saved keybind
 
-## 11) Troubleshooting
+## Troubleshooting
 1. Confirm Discord keybind matches `DISCORD_SHORTCUT` in your config.
 2. Check logs:
 
