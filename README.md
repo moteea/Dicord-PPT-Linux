@@ -2,21 +2,6 @@
 
 Use this if you want button Push-To-Talk in Discord on Linux.
 
-## Quick setup script (automatic)
-This repo includes a one-shot installer script that does:
-- OS/package-manager detection
-- dependency install
-- mouse device selection
-- side-button code detection
-- config + service registration
-
-Run:
-
-```bash
-chmod +x ./setup-ptt.sh
-./setup-ptt.sh
-```
-
 ## 1) Open Discord in X11 mode (important on Wayland)
 Run Discord with:
 
