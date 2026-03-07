@@ -2,8 +2,6 @@
 
 Discord Push-to-Talk for Linux is a Python script that enables global PTT for Discord on Linux, including Wayland setups where Discord push-to-talk may not work reliably.
 
-Keywords: Discord PTT Linux, Discord Push-to-Talk Linux, Discord Wayland Push-to-Talk, global push-to-talk for Discord on Linux.
-
 Discord on Linux can have trouble with global Push-to-Talk, especially on Wayland. This project works around that by listening for an input event and sending the configured Discord shortcut.
 
 Use this project if you want global Push-to-Talk for Discord on Linux using a mouse side button or another input device.
