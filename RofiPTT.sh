@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONFIG="$HOME/.config/ptt/config.json"
+CONFIG_DIR="$HOME/.config/ptt"
+CONFIG_PATH="$CONFIG_DIR/config.json"
+RUNTIME_CONFIG_PATH="$CONFIG_DIR/config_detected.json"
+DETECTOR_PATH="$CONFIG_DIR/DeviceDetector.py"
 SERVICE="discord-ptt.service"
 THEME_PATH="$(cd "$(dirname "$0")" && pwd)/ptt.rasi"
 
@@ -19,87 +22,144 @@ notify() {
   fi
 }
 
+config_file() {
+  if [[ -f "$RUNTIME_CONFIG_PATH" ]]; then
+    printf "%s" "$RUNTIME_CONFIG_PATH"
+  else
+    printf "%s" "$CONFIG_PATH"
+  fi
+}
+
 require_config() {
-  if [[ ! -f "$CONFIG" ]]; then
-    notify "Missing config: $CONFIG"
+  local target
+  target="$(config_file)"
+  if [[ ! -f "$target" ]]; then
+    notify "Missing config: $target"
     exit 1
   fi
 }
 
-status=$(systemctl --user is-active "$SERVICE" 2>/dev/null || true)
-
-if [[ "$status" == "active" ]]; then
-  options=$(printf "Stop PTT Service\nRestart PTT Service\nSet Discord Keybind\nShow Current Keybind")
-else
-  options=$(printf "Start PTT Service\nSet Discord Keybind\nShow Current Keybind")
-fi
-
-choice=$(echo "$options" | "${ROFI_CMD[@]}" -dmenu -i -p "Discord PTT")
-
 normalize_shortcut() {
-  local s="$1"
-  s=$(echo "$s" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
-  case "$s" in
-    "+"|"plus") s="shift+equal" ;;
+  local shortcut="$1"
+  shortcut="$(echo "$shortcut" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+  case "$shortcut" in
+    ""|"+"|"plus")
+      shortcut="shift+equal"
+      ;;
   esac
-  printf "%s" "$s"
+  printf "%s" "$shortcut"
 }
 
-set_shortcut() {
-  local picked custom shortcut
-  picked=$(printf "shift+equal\nCustom..." | "${ROFI_CMD[@]}" -dmenu -i -p "Discord keybind")
+pick_shortcut() {
+  local picked shortcut
+  picked="$(printf "shift+equal\nCustom..." | "${ROFI_CMD[@]}" -dmenu -i -p "Discord keybind")"
 
   if [[ "$picked" == "Custom..." ]]; then
-    custom=$("${ROFI_CMD[@]}" -dmenu -p "Type keybind" -mesg "Example: ctrl+shift+p or f8")
-    shortcut=$(normalize_shortcut "$custom")
+    shortcut="$("${ROFI_CMD[@]}" -dmenu -p "Type keybind" -mesg "Example: ctrl+shift+p or f8")"
   else
-    shortcut=$(normalize_shortcut "$picked")
+    shortcut="$picked"
   fi
 
-  if [[ -z "$shortcut" ]]; then
-    notify "No keybind entered"
-    exit 0
-  fi
-
+  shortcut="$(normalize_shortcut "$shortcut")"
   if [[ ! "$shortcut" =~ ^[a-z0-9_+:-]+$ ]]; then
     notify "Invalid keybind format: $shortcut"
     exit 1
   fi
 
-  require_config
-  python3 - "$CONFIG" "$shortcut" <<'PY'
-import json
-import os
-import sys
-p, key = sys.argv[1], sys.argv[2]
-with open(p, 'r', encoding='utf-8') as f:
-    data = json.load(f)
-data['DISCORD_SHORTCUT'] = key
-tmp = f"{p}.tmp"
-with open(tmp, 'w', encoding='utf-8') as f:
-    json.dump(data, f, separators=(',', ':'))
-os.replace(tmp, p)
-PY
+  printf "%s" "$shortcut"
+}
 
-  notify "Saved keybind: $shortcut"
-  if systemctl --user is-enabled "$SERVICE" >/dev/null 2>&1; then
+restart_service_if_needed() {
+  if systemctl --user is-enabled "$SERVICE" >/dev/null 2>&1 || systemctl --user is-active "$SERVICE" >/dev/null 2>&1; then
     systemctl --user restart "$SERVICE" || true
   fi
 }
 
-show_shortcut() {
-  local current
+set_shortcut() {
+  local target shortcut
   require_config
-  current=$(python3 - "$CONFIG" <<'PY'
+  target="$(config_file)"
+  shortcut="$(pick_shortcut)"
+
+  python3 - "$target" "$shortcut" <<'PY'
+import json
+import os
+import sys
+
+path, shortcut = sys.argv[1], sys.argv[2]
+with open(path, "r", encoding="utf-8") as handle:
+    data = json.load(handle)
+data["DISCORD_SHORTCUT"] = shortcut
+tmp_path = f"{path}.tmp"
+with open(tmp_path, "w", encoding="utf-8") as handle:
+    json.dump(data, handle, indent=2)
+    handle.write("\n")
+os.replace(tmp_path, path)
+PY
+
+  restart_service_if_needed
+  notify "Saved keybind: $shortcut"
+}
+
+show_shortcut() {
+  local target current
+  require_config
+  target="$(config_file)"
+  current="$(python3 - "$target" <<'PY'
 import json
 import sys
-with open(sys.argv[1], 'r', encoding='utf-8') as f:
-    data = json.load(f)
-print(data.get('DISCORD_SHORTCUT', 'not-set'))
+
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    data = json.load(handle)
+print(data.get("DISCORD_SHORTCUT", "not-set"))
 PY
-)
+)"
   notify "Current keybind: $current"
 }
+
+launch_detector() {
+  local shortcut="$1"
+  local command
+
+  if [[ ! -x "$DETECTOR_PATH" ]]; then
+    notify "Missing detector: $DETECTOR_PATH"
+    exit 1
+  fi
+
+  command="DISCORD_SHORTCUT='$shortcut'"
+  if [[ -n "${PTT_NIX_CONFIG_PATH:-}" ]]; then
+    command="$command PTT_NIX_CONFIG_PATH='${PTT_NIX_CONFIG_PATH}'"
+  fi
+  command="$command python3 '$DETECTOR_PATH'"
+
+  if command -v kitty >/dev/null 2>&1; then
+    kitty --title "Discord PTT Setup" --hold sh -lc "$command"
+  elif command -v gnome-terminal >/dev/null 2>&1; then
+    gnome-terminal -- sh -lc "$command; printf '\nPress Enter to close...'; read -r _"
+  elif command -v xterm >/dev/null 2>&1; then
+    xterm -hold -e sh -lc "$command"
+  else
+    sh -lc "$command"
+  fi
+
+  restart_service_if_needed
+}
+
+setup_device_and_keybind() {
+  local shortcut
+  shortcut="$(pick_shortcut)"
+  launch_detector "$shortcut"
+}
+
+status="$(systemctl --user is-active "$SERVICE" 2>/dev/null || true)"
+
+if [[ "$status" == "active" ]]; then
+  options="$(printf "Stop PTT Service\nRestart PTT Service\nSet Discord Keybind\nSetup Device & Keybind\nShow Current Keybind")"
+else
+  options="$(printf "Start PTT Service\nSet Discord Keybind\nSetup Device & Keybind\nShow Current Keybind")"
+fi
+
+choice="$(echo "$options" | "${ROFI_CMD[@]}" -dmenu -i -p "Discord PTT")"
 
 case "$choice" in
   "Start PTT Service")
@@ -116,6 +176,9 @@ case "$choice" in
     ;;
   "Set Discord Keybind")
     set_shortcut
+    ;;
+  "Setup Device & Keybind")
+    setup_device_and_keybind
     ;;
   "Show Current Keybind")
     show_shortcut
