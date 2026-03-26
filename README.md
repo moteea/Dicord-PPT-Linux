@@ -12,11 +12,6 @@ Use this project if you want global Push-to-Talk for Discord on Linux using a mo
 - Sends your configured Discord Push-to-Talk shortcut when that button is pressed and released.
 - Can run directly from the repo, from a built binary, or through the included Home Manager module.
 
-## Supported environments
-- Linux
-- Wayland
-- X11
-
 ## Quick start
 1. Run Discord in X11 mode so you can set the Discord Push-to-Talk keybind.
 2. Install the required packages for your Linux distribution.
