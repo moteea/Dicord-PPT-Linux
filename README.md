@@ -1,6 +1,6 @@
 # Discord Push-to-Talk (PTT) for Linux
 
-Discord Push-to-Talk for Linux is a Python script that enables global PTT for Discord on Linux, including Wayland setups where Discord push-to-talk may not work reliably.
+Discord Push-to-Talk for Linux is now a Go tool that enables global PTT for Discord on Linux, including Wayland setups where Discord push-to-talk may not work reliably.
 
 Discord on Linux can have trouble with global Push-to-Talk, especially on Wayland. This project works around that by listening for an input event and sending the configured Discord shortcut.
 
@@ -8,8 +8,9 @@ Use this project if you want global Push-to-Talk for Discord on Linux using a mo
 
 ## What this project does
 - Watches a Linux input device such as a mouse side button.
+- Detects and saves your device path and button code.
 - Sends your configured Discord Push-to-Talk shortcut when that button is pressed and released.
-- Runs as a user service so Discord push-to-talk is available after login.
+- Can run directly from the repo, from a built binary, or through the included Home Manager module.
 
 ## Supported environments
 - Linux
@@ -19,8 +20,9 @@ Use this project if you want global Push-to-Talk for Discord on Linux using a mo
 ## Quick start
 1. Run Discord in X11 mode so you can set the Discord Push-to-Talk keybind.
 2. Install the required packages for your Linux distribution.
-3. Find your input device and button code.
-4. Save the config file and run the included Python script as a user service.
+3. Build or run the Go tool.
+4. Detect your input device and button with `setup`.
+5. Start the daemon so push-to-talk works while Discord is running.
 
 ## Installation
 ### 1) Open Discord in X11 mode (important on Wayland)
@@ -38,7 +40,7 @@ In Discord:
 2. Set `Input Mode = Push to Talk`
 3. Set PTT keybind to `Shift + =`
 
-If you use another combo, it must match your script config later.
+If you use another combo, it must match your tool config later.
 
 ### 3) Install required packages
 Core (required for PTT):
@@ -46,88 +48,144 @@ Core (required for PTT):
 ### Ubuntu / Debian
 ```bash
 sudo apt update
-sudo apt install python3 python3-pip xdotool evtest
-pip3 install --user evdev
+sudo apt install golang-go xdotool
 ```
 
 ### Fedora
 ```bash
-sudo dnf install python3 python3-pip xdotool evtest
-pip3 install --user evdev
+sudo dnf install golang xdotool
 ```
 
 ### Arch
 ```bash
-sudo pacman -S python python-pip xdotool evtest
-pip install --user evdev
+sudo pacman -S go xdotool
 ```
 
-Optional (only for `RofiPTT.sh` menu and notifications):
+Optional (for the Home Manager Rofi menu and notifications):
 
 - Ubuntu / Debian: `sudo apt install rofi libnotify-bin`
 - Fedora: `sudo dnf install rofi libnotify`
 - Arch: `sudo pacman -S rofi libnotify`
 
+### 4) Normal install
+Build the binary from this repo:
+
+```bash
+go build -o discord-ptt-go .
+```
+
+Install it to a stable user path:
+
+```bash
+mkdir -p ~/.local/bin
+cp ./discord-ptt-go ~/.local/bin/discord-ptt-go
+chmod +x ~/.local/bin/discord-ptt-go
+```
+
+Verify the install:
+
+```bash
+~/.local/bin/discord-ptt-go help
+```
+
+### 5) Nix install
+Build with Nix:
+
+```bash
+nix-build default.nix
+```
+
+Verify the install:
+
+```bash
+./result/bin/discord-ptt-go help
+```
+
+If you want a development shell instead:
+
+```bash
+nix-shell
+go run . help
+```
+
 ## Configuration
-### 4) Find your mouse input device
-```bash
-ls -l /dev/input/by-id/
-```
-
-Use your mouse device path from `/dev/input/by-id/` if available.
-
-### 5) Find your side-button key code
-```bash
-sudo evtest /dev/input/eventX
-```
-
-Press your side button and note the code (example: `BTN_276` / `276`).
-
-### 6) Create config file
-Create `~/.config/ptt/config.json`:
-
-```json
-{
-  "DEVICE_NAME": "Your Mouse Name",
-  "DEVICE_PATH": "/dev/input/eventX",
-  "PTT_KEY": "BTN_276",
-  "PTT_CODE": 276,
-  "DISCORD_SHORTCUT": "shift+equal",
-  "DISPLAY": ":0"
-}
-```
-
-Replace with your actual values.
-
-### 7) Create the PTT script
-Copy the included script into place:
+### 6) Run setup to detect your device and button
+Using the built binary:
 
 ```bash
-mkdir -p ~/.config/ptt
-cp ./discord-ptt.py ~/.config/ptt/discord-ptt.py
+~/.local/bin/discord-ptt-go setup
 ```
 
-Make it executable:
+Using Nix:
 
 ```bash
-chmod +x ~/.config/ptt/discord-ptt.py
+./result/bin/discord-ptt-go setup
 ```
 
-### 8) Auto-start at login (systemd user service)
-Create `~/.config/systemd/user/discord-ptt.service`:
+Or directly with Go:
+
+```bash
+go run . setup
+```
+
+`setup` prompts for the Discord shortcut, defaults to `Shift + =`, then waits for your button press and saves the detected values.
+
+### 7) Runtime config location
+By default, the tool stores runtime state in:
+
+```text
+./state
+```
+
+The directory may contain:
+
+- `config.json`
+- `config_detected.json`
+- `shortcut_override.json`
+
+If you want to use another location:
+
+```bash
+~/.local/bin/discord-ptt-go setup --config-dir ~/.config/ptt-go
+~/.local/bin/discord-ptt-go daemon --config-dir ~/.config/ptt-go
+```
+
+### 8) Start the daemon
+Using the built binary:
+
+```bash
+~/.local/bin/discord-ptt-go daemon
+```
+
+Using Nix:
+
+```bash
+./result/bin/discord-ptt-go daemon
+```
+
+Using Go directly:
+
+```bash
+go run . daemon
+```
+
+### 9) Auto-start at login (systemd user service)
+If you want it to start automatically, create `~/.config/systemd/user/discord-ptt.service`:
 
 ```ini
 [Unit]
 Description=Discord Mouse PTT
 
 [Service]
-ExecStart=%h/.config/ptt/discord-ptt.py
+ExecStart=%h/.local/bin/discord-ptt-go daemon --config-dir %h/.config/ptt-go
 Restart=always
 Environment=DISPLAY=:0
 
 [Install]
 WantedBy=default.target
 ```
+
+If you built the binary somewhere else, update `ExecStart` to match your real path.
 
 Enable it:
 
@@ -139,27 +197,17 @@ systemctl --user enable --now discord-ptt.service
 ## Alternative setup: Nix / Home Manager
 This repo includes a Home Manager module:
 
-`./discord-ptt-home-manager.nix`
+`./ptt.nix`
 
 Add it to your Home Manager config, for example:
 
 ```nix
 {
   imports = [
-    ./discord-ptt-home-manager.nix
+    ./ptt.nix
   ];
 }
 ```
-
-Then edit your generated config values in:
-
-- `~/.config/ptt/config.json`
-
-Important:
-- Replace `DEVICE_NAME` with your real mouse name if you want automatic device matching.
-- Replace `DEVICE_PATH` with your real input device. A `/dev/input/by-id/*event-mouse` path is preferred.
-- Replace `PTT_KEY` with your button name if you want a readable label in logs.
-- Replace `PTT_CODE` with your mouse side-button code from `evtest`.
 
 Apply Home Manager:
 
@@ -167,34 +215,38 @@ Apply Home Manager:
 home-manager switch
 ```
 
-This module installs dependencies, writes the PTT scripts, and enables the user service.
-It also installs `DeviceDetector.py` and seeds `~/.config/ptt/config_detected.json` so runtime changes survive without editing the store-managed file.
+This module:
+- Builds and installs `discord-ptt-go`
+- Writes `~/.config/ptt-go/config.json`
+- Seeds `~/.config/ptt-go/config_detected.json`
+- Writes `~/.config/ptt-go/shortcut_override.json`
+- Installs `~/.config/ptt-go/PTTManager.sh`
+- Installs `~/.config/ptt-go/RofiPTT.sh`
 
 ## Optional Rofi menu
-This repo includes `RofiPTT.sh`.
+When using the Home Manager module, this repo generates:
 
-Copy and run it:
+- `~/.config/ptt-go/PTTManager.sh`
+- `~/.config/ptt-go/RofiPTT.sh`
+
+Run it with:
 
 ```bash
-mkdir -p ~/.config/ptt
-cp ./DeviceDetector.py ~/.config/ptt/DeviceDetector.py
-cp ./RofiPTT.sh ~/.config/ptt/RofiPTT.sh
-chmod +x ~/.config/ptt/RofiPTT.sh
-~/.config/ptt/RofiPTT.sh
+~/.config/ptt-go/RofiPTT.sh
 ```
 
 What it does:
-- Start/stop/restart `discord-ptt.service`
-- Set Discord keybind (preset or custom)
-- Detect a mouse button and write `~/.config/ptt/config_detected.json`
-- Show current saved keybind
+- Start/stop/restart the PTT daemon
+- Run setup to detect a mouse button
+- View daemon logs
+- Show a simple help entry
 
 ## Troubleshooting
-1. Confirm Discord keybind matches `DISCORD_SHORTCUT` in your config.
-2. Check logs:
+1. Confirm the Discord keybind matches `DISCORD_SHORTCUT` in your config.
+2. Check the saved config:
 
 ```bash
-journalctl --user -u discord-ptt.service -f
+go run . print-config
 ```
 
 3. Make sure Discord is running with:
@@ -203,7 +255,8 @@ journalctl --user -u discord-ptt.service -f
 discord --enable-features=UseOzonePlatform --ozone-platform=x11
 ```
 
-4. If the service starts but does not react to button presses, confirm your user can read the chosen input device.
+4. If the daemon starts but does not react to button presses, confirm your user can read the chosen input device.
+5. If you are using a custom config location, make sure you pass the same `--config-dir` value to both `setup` and `daemon`.
 
 ## License
 MIT. See [LICENSE](./LICENSE).

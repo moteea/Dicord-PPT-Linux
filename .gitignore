@@ -5,5 +5,15 @@ __pycache__/
 # Logs
 *.log
 
+# Nix build output
+result
+
+# Local runtime state
+state/
+
 # Local config backups
 *.bak
+old/
+
+# Local ripgrep ignores
+.ignore
